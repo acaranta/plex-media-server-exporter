@@ -252,13 +252,19 @@ module PlexMediaServerExporter
         end
       end
 
-      # Set metric values and reset all other labels that werenn't passed in
+      # Set metric values and reset all other labels that weren't passed in
       def set_gauge_metric_values_or_reset_missing(metric:, values:)
-        missing_labels_collection = metric.values.keys - values.keys
+        begin
+          # Try to get existing values with the old label format
+          old_values = metric.values
+          
+          # Reset all old values to clean up any stale metrics
+          old_values.keys.each { |l| metric.set(0, labels: l) }
+        rescue Prometheus::Client::LabelSetValidator::InvalidLabelSetError
+          # Ignore errors from old label format
+        end
 
-        # Reset all values with labels that weren't passed in
-        missing_labels_collection.each { |l| metric.set(0, labels: l) }
-
+        # Set new values
         values.each do |labels, labels_value|
           metric.set(labels_value, labels: labels)
         end
